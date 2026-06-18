@@ -1,11 +1,10 @@
 import httpStatus from "http-status";
-import mongoose from "mongoose";
 import { Cart } from "../models/Cart.js";
 import { Product } from "../models/Product.js";
 import { Order } from "../models/Order.js";
-import { Address } from "../models/Address.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { successResponse } from "../utils/apiResponse.js";
+import { resolveCheckoutAddress, toAddressSnapshot } from "../services/addressService.js";
 import { PAYMENT_GATEWAYS, ORDER_STATUS, SERVICE_TYPES } from "../utils/constants.js";
 import { createStripePaymentIntent, createRazorpayOrder } from "../services/paymentService.js";
 import { debitWallet } from "../services/walletService.js";
@@ -15,13 +14,6 @@ import { sendOrderNotifications } from "../services/orderNotificationService.js"
 
 const createTransactionId = () => `RM${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 const createInvoiceNumber = (order) => `RM-${new Date().getFullYear()}-${String(order._id).slice(-8).toUpperCase()}`;
-
-const fetchAddress = async (userId, addressId) => {
-  if (!addressId) return null;
-  if (!mongoose.isValidObjectId(addressId)) return null;
-  const address = await Address.findOne({ _id: addressId, userId });
-  return address || null;
-};
 
 const resolveItemsFromRequest = async (userId, reqBody) => {
   const { items } = reqBody || {};
@@ -70,7 +62,13 @@ export const initiateProductCheckout = asyncHandler(async (req, res) => {
     throw Object.assign(new Error("Invalid amount"), { statusCode: httpStatus.BAD_REQUEST });
   }
 
-  const addressDoc = (await fetchAddress(req.user.id, addressId)) || rawAddress || null;
+  const addressRecord = await resolveCheckoutAddress(req.user.id, { addressId, rawAddress });
+  if (!addressRecord) {
+    throw Object.assign(new Error("Delivery address is required"), { statusCode: httpStatus.BAD_REQUEST });
+  }
+
+  const addressSnapshot = toAddressSnapshot(addressRecord);
+  const savedAddressId = addressRecord._id?.toString?.() || addressId || null;
 
   const order = await Order.create({
     userId: req.user.id,
@@ -80,7 +78,7 @@ export const initiateProductCheckout = asyncHandler(async (req, res) => {
     currency: "INR",
     paymentGateway: gateway,
     status: gateway === PAYMENT_GATEWAYS.COD ? ORDER_STATUS.PENDING : ORDER_STATUS.PENDING,
-    notes: { address: addressDoc }
+    notes: { address: addressSnapshot, addressId: savedAddressId }
   });
 
   if (gateway === PAYMENT_GATEWAYS.COD) {

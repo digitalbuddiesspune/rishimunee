@@ -29,7 +29,45 @@ import mongoose from "mongoose";
 
 const app = express();
 
-const allowedOrigins = process.env.CLIENT_URL?.split(",")?.map((url) => url.trim()).filter(Boolean) || ["*"];
+const buildAllowedOrigins = () => {
+  const entries =
+    process.env.CLIENT_URL?.split(",")
+      .map((url) => url.trim())
+      .filter(Boolean) ?? [];
+
+  if (!entries.length) {
+    return ["*"];
+  }
+
+  const origins = new Set();
+  for (const entry of entries) {
+    try {
+      const parsed = new URL(entry);
+      origins.add(parsed.origin);
+
+      const { hostname, protocol } = parsed;
+      const isLocal =
+        hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+        /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
+
+      if (!isLocal) {
+        if (hostname.startsWith("www.")) {
+          origins.add(`${protocol}//${hostname.slice(4)}`);
+        } else {
+          origins.add(`${protocol}//www.${hostname}`);
+        }
+      }
+    } catch {
+      origins.add(entry.replace(/\/$/, ""));
+    }
+  }
+
+  return [...origins];
+};
+
+const allowedOrigins = buildAllowedOrigins();
 
 const isDevClientOrigin = (origin) => {
   try {
@@ -55,7 +93,8 @@ app.use(
       if (process.env.NODE_ENV !== "production" && isDevClientOrigin(origin)) {
         return callback(null, true);
       }
-      return callback(new Error("Not allowed by CORS"));
+      logger.warn("CORS request blocked", { origin, allowedOrigins });
+      return callback(null, false);
     },
     credentials: true
   })
@@ -140,6 +179,9 @@ const bootstrap = async () => {
     await connectDatabase();
     httpServer = app.listen(port, () => {
       logger.info(`Server running on port ${port}`);
+      logger.info("CORS allowed origins configured", {
+        origins: allowedOrigins.includes("*") ? ["*"] : allowedOrigins
+      });
     });
   } catch (error) {
     logger.error("Failed to start server", { error: error.message });

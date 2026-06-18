@@ -101,7 +101,9 @@ app.use("/api/service-reports", serviceReportRoutes);
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
 });
-
+app.get("/", (_req, res) => {
+  res.json({ success: true, message: "Welcome to the RisheeMuni API" });
+});
 app.use(errorHandler);
 
 const port = process.env.PORT || 5000;

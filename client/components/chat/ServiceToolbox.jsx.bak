@@ -1,0 +1,236 @@
+"use client";
+
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { useAppDispatch } from "../../lib/store/hooks.js";
+import { Button } from "../ui/Button.jsx";
+import { Input, TextArea } from "../ui/Input.jsx";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card.jsx";
+import { apiClient } from "../../lib/api-client.js";
+import { PAYMENT_GATEWAYS } from "../../lib/wallet/constants.js";
+import { fetchWallet } from "../../lib/store/slices/walletSlice.js";
+import { appendMessage } from "../../lib/store/slices/chatSlice.js";
+
+const SERVICE_MAP = {
+  kundli: { type: "kundli", paid: true, title: "Generate Kundli" },
+  matching: { type: "kundli_matching", paid: true, title: "Kundli Matching" },
+  panchang: { type: "panchang", paid: false, title: "Daily Panchang" },
+  horoscope: { type: "daily_horoscope", paid: false, title: "Daily Horoscope" },
+  "baby-name": { type: "baby_name", paid: true, title: "Baby Name Suggestions" },
+  "mangal-dosha": { type: "mangal_dosha", paid: true, title: "Mangal Dosha Check" },
+  "kal-sarp-dosh": { type: "kal_sarp_dosh", paid: true, title: "Kal Sarp Dosh" },
+  "career-counselling": { type: "career_counselling", paid: true, title: "Career Counselling" },
+  "life-report": { type: "life_report", paid: true, title: "Life Report" },
+  "year-analysis": { type: "year_analysis", paid: true, title: "Year Analysis" }
+};
+
+export function ServiceToolbox({ chatId, open, onClose }) {
+  const params = useSearchParams();
+  const dispatch = useAppDispatch();
+  const [active, setActive] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  // form states
+  const [kundli, setKundli] = useState({ name: "", date: "", time: "", place: "" });
+  const [matching, setMatching] = useState({ bride: { name: "", date: "", time: "", place: "" }, groom: { name: "", date: "", time: "", place: "" } });
+  const [panchang, setPanchang] = useState({ location: "Delhi, India" });
+  const [horoscope, setHoroscope] = useState({ zodiacSign: "Aries" });
+  const [chartJson, setChartJson] = useState("{}");
+  const [genericQuestion, setGenericQuestion] = useState("");
+
+  const initialSlug = params.get("service") || "";
+  const alreadyPaid = params.get("paid") === "1";
+
+  useEffect(() => {
+    if (initialSlug && SERVICE_MAP[initialSlug]) setActive(initialSlug);
+  }, [initialSlug]);
+
+  const title = useMemo(() => (active ? SERVICE_MAP[active]?.title : "Start a Service"), [active]);
+
+  const ensurePayment = async (slug) => {
+    const meta = SERVICE_MAP[slug];
+    if (!meta?.paid) return true;
+    // If user came with ?paid=1 for this specific service, consume entitlement once
+    if (alreadyPaid && slug === initialSlug) {
+      await apiClient.post("/orders/consume", { serviceType: meta.type });
+      return true;
+    }
+    // For any other paid service, try consuming; if no entitlement, redirect to checkout
+    try {
+      await apiClient.post("/orders/consume", { serviceType: meta.type });
+      return true;
+    } catch (err) {
+      if (err.response?.status === 402) {
+        window.location.href = `/payments/checkout?service=${encodeURIComponent(slug)}`;
+        return false;
+      }
+      throw err;
+    }
+  };
+
+  const appendAssistant = (text) => {
+    const msg = { sender: "assistant", text, timestamp: new Date().toISOString() };
+    dispatch(appendMessage({ chatId, message: msg }));
+  };
+
+  const onRun = async () => {
+    if (!active) return;
+    try {
+      setBusy(true);
+      setError("");
+      const ok = await ensurePayment(active);
+      if (!ok) return;
+      // If ensurePayment redirected, skip
+      if (active !== initialSlug && alreadyPaid) {
+        // prevent exploiting paid=1 for other services
+        // continue only when ensurePayment succeeded via consume
+      }
+      if (active === "kundli") {
+        const { data } = await apiClient.post("/kundli/generate", kundli);
+        const { chart, narrative } = data.data || {};
+        appendAssistant(`Kundli generated for ${kundli.name}.\n\n${narrative || ""}`);
+      } else if (active === "matching") {
+        const { data } = await apiClient.post("/kundli/match", matching);
+        const { compatibility, narrative } = data.data || {};
+        appendAssistant(`Kundli Matching result: ${compatibility?.gunasMatched || "-"}/36 guna.\n\n${narrative || ""}`);
+      } else if (active === "panchang") {
+        const { data } = await apiClient.get(`/panchang?location=${encodeURIComponent(panchang.location)}`);
+        appendAssistant(`Panchang for ${panchang.location}:\n\n${Object.entries(data.data.panchang || {})
+          .map(([k, v]) => `- ${k}: ${v}`)
+          .join("\n")}`);
+      } else if (active === "horoscope") {
+        const { data } = await apiClient.get(`/horoscope?zodiacSign=${encodeURIComponent(horoscope.zodiacSign)}`);
+        const h = data.data.horoscope?.daily || {};
+        appendAssistant(`Daily Horoscope for ${horoscope.zodiacSign}:\n\n- Summary: ${h.summary || "-"}\n- Mood: ${h.mood || "-"}\n- Love: ${h.love || "-"}\n- Finance: ${h.finance || "-"}\n- Health: ${h.health || "-"}`);
+      } else if (active === "baby-name") {
+        const payload = safeParse(chartJson);
+        const { data } = await apiClient.post("/kundli/baby-names", payload);
+        const suggestions = data.data?.suggestions || [];
+        appendAssistant(`Baby name suggestions:\n\n${suggestions.map((s) => `- ${s}`).join("\n")}`);
+      } else if (active === "mangal-dosha") {
+        const payload = safeParse(chartJson);
+        const { data } = await apiClient.post("/kundli/mangal-dosha", payload);
+        appendAssistant(`Mangal Dosha analysis:\n\n${data.data?.narrative || "Completed."}`);
+      } else if (active === "kal-sarp-dosh") {
+        const payload = safeParse(chartJson);
+        const { data } = await apiClient.post("/kundli/kal-sarp", payload);
+        appendAssistant(`Kal Sarp Dosh analysis:\n\n${data.data?.narrative || "Completed."}`);
+      } else {
+        // generic: push question to chat so AI picks up
+        const userMsg = { sender: "user", text: genericQuestion || `I have booked ${SERVICE_MAP[active]?.title}. Please proceed.`, timestamp: new Date().toISOString() };
+        dispatch(appendMessage({ chatId, message: userMsg }));
+        const { data } = await apiClient.post(`/chat/${chatId}/messages`, { message: userMsg.text });
+        // backend will append assistant message; ensure store sync
+        // dispatch of full session update is handled elsewhere when ChatWindow sends
+      }
+      // close modal on success
+      onClose?.();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to run service");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-xl rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-card)] shadow-xl">
+        <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-3">
+          <p className="text-sm font-semibold text-[color:var(--color-text)]">{title}</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.keys(SERVICE_MAP).map((slug) => (
+              <Button
+                key={slug}
+                size="sm"
+                variant={active === slug ? "default" : "outline"}
+                onClick={() => setActive(slug)}
+              >
+                {SERVICE_MAP[slug].title}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <Card className="border-0">
+          <CardHeader>
+            <CardTitle className="text-base">Provide details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {active === "kundli" && (
+              <>
+                <Input placeholder="Full name" value={kundli.name} onChange={(e) => setKundli((p) => ({ ...p, name: e.target.value }))} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input type="date" value={kundli.date} onChange={(e) => setKundli((p) => ({ ...p, date: e.target.value }))} />
+                  <Input type="time" value={kundli.time} onChange={(e) => setKundli((p) => ({ ...p, time: e.target.value }))} />
+                </div>
+                <Input placeholder="Place of birth" value={kundli.place} onChange={(e) => setKundli((p) => ({ ...p, place: e.target.value }))} />
+              </>
+            )}
+
+            {active === "matching" && (
+              <>
+                <p className="text-xs text-[color:var(--color-text-soft)]">Bride Details</p>
+                <Input placeholder="Name" value={matching.bride.name} onChange={(e) => setMatching((p) => ({ ...p, bride: { ...p.bride, name: e.target.value } }))} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input type="date" value={matching.bride.date} onChange={(e) => setMatching((p) => ({ ...p, bride: { ...p.bride, date: e.target.value } }))} />
+                  <Input type="time" value={matching.bride.time} onChange={(e) => setMatching((p) => ({ ...p, bride: { ...p.bride, time: e.target.value } }))} />
+                </div>
+                <Input placeholder="Place of birth" value={matching.bride.place} onChange={(e) => setMatching((p) => ({ ...p, bride: { ...p.bride, place: e.target.value } }))} />
+
+                <p className="mt-2 text-xs text-[color:var(--color-text-soft)]">Groom Details</p>
+                <Input placeholder="Name" value={matching.groom.name} onChange={(e) => setMatching((p) => ({ ...p, groom: { ...p.groom, name: e.target.value } }))} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input type="date" value={matching.groom.date} onChange={(e) => setMatching((p) => ({ ...p, groom: { ...p.groom, date: e.target.value } }))} />
+                  <Input type="time" value={matching.groom.time} onChange={(e) => setMatching((p) => ({ ...p, groom: { ...p.groom, time: e.target.value } }))} />
+                </div>
+                <Input placeholder="Place of birth" value={matching.groom.place} onChange={(e) => setMatching((p) => ({ ...p, groom: { ...p.groom, place: e.target.value } }))} />
+              </>
+            )}
+
+            {active === "panchang" && (
+              <Input placeholder="City, Country" value={panchang.location} onChange={(e) => setPanchang({ location: e.target.value })} />
+            )}
+
+            {active === "horoscope" && (
+              <select
+                value={horoscope.zodiacSign}
+                onChange={(e) => setHoroscope({ zodiacSign: e.target.value })}
+                className="w-full rounded-2xl border border-[color:var(--color-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--color-text)]"
+              >
+                {["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"].map((z) => (
+                  <option key={z} value={z}>{z}</option>
+                ))}
+              </select>
+            )}
+
+            {(active === "baby-name" || active === "mangal-dosha" || active === "kal-sarp-dosh") && (
+              <TextArea rows={6} value={chartJson} onChange={(e) => setChartJson(e.target.value)} placeholder='Paste chart JSON e.g. {"chart":{...}}' />
+            )}
+
+            {(active === "career-counselling" || active === "life-report" || active === "year-analysis") && (
+              <TextArea rows={4} value={genericQuestion} onChange={(e) => setGenericQuestion(e.target.value)} placeholder="Share your goal or question for this service..." />
+            )}
+
+            {error && <p className="text-xs text-[color:var(--color-danger)]">{error}</p>}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => onClose?.()}>Cancel</Button>
+              <Button onClick={onRun} disabled={busy}>{busy ? "Working..." : "Run in Chat"}</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function safeParse(txt) {
+  try {
+    const obj = JSON.parse(txt || "{}");
+    return obj && typeof obj === "object" ? obj : {};
+  } catch (_e) {
+    return {};
+  }
+}
+

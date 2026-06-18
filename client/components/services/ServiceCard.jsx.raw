@@ -1,0 +1,35 @@
+import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/Card.jsx";
+import { Button } from "../ui/Button.jsx";
+import { Badge } from "../ui/Badge.jsx";
+
+export const ServiceCard = ({ service }) => (
+  <Card className="flex h-full flex-col">
+    <CardHeader>
+      <Badge variant={service.isPaid ? "default" : "outline"}>{service.isPaid ? "Paid" : "Free"}</Badge>
+      <div>
+        <CardTitle>{service.name}</CardTitle>
+        <CardDescription>{service.description}</CardDescription>
+      </div>
+    </CardHeader>
+    <CardContent className="flex-1 space-y-3 text-sm text-[color:var(--color-text-soft)]">
+      <ul className="space-y-1">
+        {service.features?.map((feature) => (
+          <li key={feature}>• {feature}</li>
+        ))}
+      </ul>
+      <p className="font-semibold text-[color:var(--color-text)]">{service.isPaid ? `Starts ?${service.basePrice}` : "Complimentary"}</p>
+    </CardContent>
+    <div className="mt-6 flex gap-2">
+      <Button as={Link} href={`/payments/checkout?service=${service.slug}`} size="sm">
+        Book now
+      </Button>
+      <Button as={Link} href={service.metadata?.href || `/services/${service.slug || service.serviceType}`} variant="outline" size="sm">
+        Learn more
+      </Button>
+    </div>
+  </Card>
+);
+
+
+

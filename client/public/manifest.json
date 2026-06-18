@@ -1,0 +1,22 @@
+{
+  "name": "RisheeMuni",
+  "short_name": "RisheeMuni",
+  "description": "AI astrologers, Kundli, Panchang, gemstone store, and personalised reports.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1f1238",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "406x408",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "406x408",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

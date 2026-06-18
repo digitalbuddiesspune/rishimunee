@@ -1,9 +1,5 @@
-const company = {
-  legalName: "GROWTHAURA SOFTWARE SERVICES (OPC) PRIVATE LIMITED",
-  address:
-    "C/O Vasudhaben Balvantray Bhatt, Chandan Park Amit, Opp. Konark Appt., Rajkot, Gujarat - 360005, India",
-  director: "Pranav Bhatt",
-};
+import { company } from "../../lib/company.js";
+import { CompanyDetails } from "../../components/layout/CompanyDetails.jsx";
 
 export const metadata = {
   title: "Privacy Policy | RisheeMuni",
@@ -18,9 +14,8 @@ export default function PrivacyPolicyPage() {
 
         <section className="mt-8 space-y-3 text-sm text-[color:var(--color-text-soft)]">
           <h2 className="text-xl font-semibold text-[color:var(--color-text)]">1. Who We Are</h2>
-          <p>RisheeMuni is operated by {company.legalName}.</p>
-          <p>Registered Office: {company.address}</p>
-          <p>Authorized Signatory/Director: {company.director}</p>
+          <p>{company.brandName} is operated by {company.legalName}.</p>
+          <CompanyDetails />
         </section>
 
         <section className="mt-8 space-y-3 text-sm text-[color:var(--color-text-soft)]">
@@ -55,8 +50,7 @@ export default function PrivacyPolicyPage() {
         <section className="mt-8 space-y-3 text-sm text-[color:var(--color-text-soft)]">
           <h2 className="text-xl font-semibold text-[color:var(--color-text)]">7. Contact</h2>
           <p>For privacy-related requests, write to us at our registered office:</p>
-          <p>{company.legalName}</p>
-          <p>{company.address}</p>
+          <CompanyDetails />
         </section>
       </article>
     </div>

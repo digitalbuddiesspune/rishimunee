@@ -1,5 +1,7 @@
 ﻿import Link from "next/link";
 import { Logo } from "../ui/Logo.jsx";
+import { company } from "../../lib/company.js";
+import { CompanyDetails } from "./CompanyDetails.jsx";
 
 const quickLinks = [
   { href: "/services/kundli", label: "Kundli" },
@@ -20,7 +22,7 @@ export const SiteFooter = () => {
             Indian audiences.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-4 text-sm text-[color:var(--color-text-soft)] sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 text-sm text-[color:var(--color-text-soft)] sm:grid-cols-4">
           <div>
             <p className="mb-2 font-semibold text-[color:var(--color-text)]">
               Quick Links
@@ -70,11 +72,14 @@ export const SiteFooter = () => {
               </li>
             </ul>
           </div>
+          <div className="col-span-2 sm:col-span-1">
+            <p className="mb-2 font-semibold text-[color:var(--color-text)]">Company</p>
+            <CompanyDetails />
+          </div>
         </div>
       </div>
       <div className="border-t border-[color:var(--color-border)] py-4 text-center text-xs text-[color:var(--color-muted-foreground)]">
-        © {new Date().getFullYear()} RisheeMuni Technologies. All rights
-        reserved.
+        © {new Date().getFullYear()} {company.legalName}. All rights reserved.
       </div>
     </footer>
   );

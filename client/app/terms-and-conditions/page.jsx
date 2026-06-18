@@ -1,8 +1,5 @@
-const company = {
-  legalName: "GROWTHAURA SOFTWARE SERVICES (OPC) PRIVATE LIMITED",
-  address:
-    "C/O Vasudhaben Balvantray Bhatt, Chandan Park Amit, Opp. Konark Appt., Rajkot, Gujarat - 360005, India",
-};
+import { company } from "../../lib/company.js";
+import { CompanyDetails } from "../../components/layout/CompanyDetails.jsx";
 
 export const metadata = {
   title: "Terms and Conditions | RisheeMuni",
@@ -53,13 +50,12 @@ export default function TermsAndConditionsPage() {
 
         <section className="mt-8 space-y-3 text-sm text-[color:var(--color-text-soft)]">
           <h2 className="text-xl font-semibold text-[color:var(--color-text)]">8. Governing Law and Jurisdiction</h2>
-          <p>These terms are governed by Indian law. Courts in Rajkot, Gujarat shall have jurisdiction, subject to applicable law.</p>
+          <p>These terms are governed by Indian law. Courts in {company.jurisdiction} shall have jurisdiction, subject to applicable law.</p>
         </section>
 
         <section className="mt-8 space-y-3 text-sm text-[color:var(--color-text-soft)]">
           <h2 className="text-xl font-semibold text-[color:var(--color-text)]">9. Legal Entity Details</h2>
-          <p>{company.legalName}</p>
-          <p>Registered Office: {company.address}</p>
+          <CompanyDetails />
         </section>
       </article>
     </div>

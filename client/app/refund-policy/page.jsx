@@ -1,8 +1,4 @@
-const company = {
-  legalName: "GROWTHAURA SOFTWARE SERVICES (OPC) PRIVATE LIMITED",
-  address:
-    "C/O Vasudhaben Balvantray Bhatt, Chandan Park Amit, Opp. Konark Appt., Rajkot, Gujarat - 360005, India",
-};
+import { CompanyDetails } from "../../components/layout/CompanyDetails.jsx";
 
 export const metadata = {
   title: "Refund Policy | RisheeMuni",
@@ -46,8 +42,7 @@ export default function RefundPolicyPage() {
           <h2 className="text-xl font-semibold text-[color:var(--color-text)]">6. Raise a Refund Request</h2>
           <p>To raise a refund request, contact support with your transaction ID, service details, and issue description.</p>
           <p>You may also send legal correspondence to:</p>
-          <p>{company.legalName}</p>
-          <p>{company.address}</p>
+          <CompanyDetails />
         </section>
       </article>
     </div>

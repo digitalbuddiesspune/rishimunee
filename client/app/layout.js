@@ -21,14 +21,15 @@ export const metadata = {
     "AI astrologers, Kundli, Panchang, gemstone store, and personalised reports with secure Indian payments.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/assets/logoR.png",
-    apple: "/assets/logoR.png",
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     title: "RisheeMuni — Your digital astrology companion",
     description:
       "Chat with AI astrologers, order gemstones, and access Vedic wisdom tailored for you.",
-    url: "https://bramhanai.example",
+    url: "https://www.risheemuni.in",
     siteName: "RisheeMuni",
     type: "website",
     images: ["/assets/logoR.png"],
